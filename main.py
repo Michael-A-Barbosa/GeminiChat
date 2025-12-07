@@ -12,7 +12,7 @@ if not key:
     raise ValueError("A variável de ambiente GEMINI_API_KEY não está configurada.")
 
 # --- Configuração de Chave - local ---
-# KEY_FILE_PATH = "keys.txt"
+# key = "keys.txt"
 MODEL_NAME = "gemini-2.5-flash"
 
 # --- Função de Carregamento da Chave ---
@@ -55,7 +55,7 @@ client = None
 API_KEY_LOAD_ERROR = None
 
 try:
-    api_key = load_api_key(KEY_FILE_PATH)
+    api_key = load_api_key(key)
     client = genai.Client(api_key=api_key)
 except Exception as e:
     API_KEY_LOAD_ERROR = str(e)
