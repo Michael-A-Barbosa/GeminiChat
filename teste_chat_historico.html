@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Chat Gemini com Persistência (Redis)</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f4f4f4; }
+        #chat-container { border: 1px solid #ccc; padding: 15px; height: 400px; overflow-y: scroll; background-color: #fff; margin-bottom: 20px; }
+        .message { margin-bottom: 10px; padding: 8px; border-radius: 5px; }
+        .user { background-color: #d1e7ff; text-align: right; }
+        .agent { background-color: #e9ecef; text-align: left; }
+        button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
+        input[type="text"] { width: 70%; padding: 10px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+    <h2>Chatbot Gemini (Memória Persistente)</h2>
+    <p><strong>Status do Servidor:</strong> <span id="server-status">Verificando...</span></p>
+
+    <div id="chat-container">
+        </div>
+
+    <input type="text" id="user-input" placeholder="Digite sua pergunta aqui...">
+    <button onclick="sendMessage()">Enviar Mensagem</button>
+    <button onclick="resetSession()" style="background-color: #dc3545; color: white;">Resetar Sessão</button>
+    
+    <p><small>ID da Sessão Atual (Simulado): <span id="session-display">cliente_teste_123</span></small></p>
+
+    <script>
+        // O ID de sessão é simulado aqui. Em um front-end real, ele viria de um cookie ou armazenamento local.
+        const SESSION_ID = 'cliente_teste_123'; 
+        const API_BASE_URL = 'http://127.0.0.1:8000';
+
+        document.getElementById('session-display').textContent = SESSION_ID;
+
+        // --- Função Principal de Envio ---
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const pergunta = input.value.trim();
+
+            if (!pergunta) return;
+
+            // 1. Mostrar a pergunta do usuário
+            appendMessage(pergunta, 'user');
+            input.value = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        pergunta_cliente: pergunta,
+                        session_id: SESSION_ID
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // 2. Mostrar a resposta do Agente (Gemini)
+                    appendMessage(data.resposta_ia, 'agent');
+                } else {
+                    appendMessage(`Erro do Servidor: ${data.detail || 'Não foi possível obter a resposta.'}`, 'agent');
+                }
+
+            } catch (error) {
+                appendMessage(`Erro de Rede ou Configuração: ${error.message}`, 'agent');
+            }
+        }
+
+        // --- Função de Reset (Testa o DELETE) ---
+        async function resetSession() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat/reset?session_id=${SESSION_ID}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('Sessão resetada com sucesso! O histórico foi apagado do Redis.');
+                    document.getElementById('chat-container').innerHTML = `<div class="message agent">Sessão resetada. Comece uma nova conversa.</div>`;
+                } else {
+                    const data = await response.json();
+                    alert(`Erro ao resetar: ${data.detail || 'Falha no servidor.'}`);
+                }
+            } catch (error) {
+                alert(`Erro de Rede: ${error.message}`);
+            }
+        }
+
+        // --- Função Auxiliar de Renderização ---
+        function appendMessage(text, role) {
+            const container = document.getElementById('chat-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            // Adiciona quebras de linha para formatar a resposta da IA
+            messageDiv.innerHTML = role === 'agent' ? text.replace(/\n/g, '<br>') : text; 
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight; // Scroll automático para o final
+        }
+        
+        // --- Verificação de Status Inicial ---
+        async function checkStatus() {
+             try {
+                const response = await fetch(`${API_BASE_URL}/`);
+                const statusElement = document.getElementById('server-status');
+                
+                if (response.ok) {
+                    statusElement.textContent = 'Ativo (Pronto para Conversar)';
+                    statusElement.style.color = 'green';
+                } else {
+                    statusElement.textContent = 'Inativo ou Erro';
+                    statusElement.style.color = 'red';
+                }
+            } catch (error) {
+                document.getElementById('server-status').textContent = 'Inativo (Verifique o Uvicorn)';
+                document.getElementById('server-status').style.color = 'red';
+            }
+        }
+
+        checkStatus();
+
+    </script>
+</body>
+</html>

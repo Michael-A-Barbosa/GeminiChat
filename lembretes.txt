@@ -1,0 +1,20 @@
+usuario e senha wls linux ubuntu:
+michael_ubuntu
+nbti2
+
+iniciar o redis com o usuario
+wsl.exe -d Ubuntu -u michael_ubuntu
+
+startar o ambiente virtual:
+iniciar o CMD - navegar ate a pasta EX. cd C:\PROGRAMACAO\GeminiPyApp
+.\venv\Scripts\Activate
+
+
+
+iniciar com apens um worker para testes no desenvolvimento ou debug, usar o comando:
+uvicorn main:app --reload
+
+
+
+iniciar em produção com multiplas instancias 'workers' para atender a muitas requisições em paralelo, e tbm para testes de carga: 
+uvicorn main:app --workers 4 --host 0.0.0.0 --port 8000

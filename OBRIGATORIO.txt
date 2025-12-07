@@ -1,0 +1,123 @@
+guia passo a passo para instalar o WSL no próximo cliente:
+
+💻 Guia de Instalação do Windows Subsystem for Linux (WSL)
+1. Pré-requisitos
+O cliente deve estar usando o Windows 10 (versão 2004 ou superior) ou Windows 11.
+
+É necessário ter permissões de administrador para executar comandos no PowerShell.
+
+2. Instalação Automática Simplificada (Recomendado)
+O Windows possui um comando simplificado que cuida de todos os pré-requisitos, instala o WSL e configura o Ubuntu (a distribuição Linux mais comum) por padrão.
+
+Abra o PowerShell como Administrador:
+
+Clique no menu Iniciar, digite "PowerShell".
+
+Clique com o botão direito em "Windows PowerShell" e selecione "Executar como Administrador".
+
+Execute o Comando de Instalação:
+
+Digite o comando a seguir e pressione Enter:
+
+PowerShell
+
+wsl --install
+Aguarde a Conclusão:
+
+O Windows irá habilitar os recursos opcionais necessários (como a Plataforma de Máquina Virtual), baixará o kernel Linux e instalará a distribuição Ubuntu.
+
+Reinicie o Computador:
+
+A instalação do WSL exige que o computador seja reiniciado para que as alterações do sistema entrem em vigor.
+
+3. Configuração Inicial do Linux
+Primeiro Login (Após a Reinicialização):
+
+Após o reinício, o terminal do Ubuntu abrirá automaticamente (ou pode ser iniciado pelo menu Iniciar).
+
+Você será solicitado a criar um Nome de Usuário e Senha para o seu ambiente Linux (este login é separado do login do Windows).
+
+Verifique a Instalação:
+
+Você pode verificar se o WSL está instalado e qual distribuição está rodando digitando no PowerShell do Windows:
+
+PowerShell
+
+wsl -l -v
+4. Instalação do Servidor Redis no WSL
+Com o WSL e o Ubuntu rodando, você pode seguir os passos que mencionei anteriormente para instalar o Redis dentro desse ambiente Linux:
+
+Entre no Ambiente Linux:
+
+PowerShell
+
+wsl
+Instale o Redis:
+
+Bash
+
+sudo apt update
+sudo apt install redis-server
+Ajuste de Configuração:
+
+Edite o arquivo /etc/redis/redis.conf para comentar a linha bind 127.0.0.1 e adicionar bind 0.0.0.0 (ou certifique-se de que a linha protected-mode yes esteja comentada ou ajustada, dependendo da versão do Redis) para que o Redis seja acessível pelo seu código Python no Windows.
+
+
+
+
+
+-*********************-************************-********************************
+
+1. Verificando e Ativando o Redis no WSL
+Como você instalou o Redis dentro do Ubuntu no WSL, a administração é feita através dos comandos padrão do Linux.
+
+A. Como Saber se o Redis Está Ativo
+A forma mais confiável de verificar o status do servidor Redis é usar o comando service do Linux (ou o comando redis-cli).
+
+Entre no Ambiente WSL:
+
+Bash
+
+wsl
+Verifique o Status do Serviço:
+
+Bash
+
+sudo service redis-server status
+Saída Esperada (Ativo): Você deve ver algo como Active: active (running).
+
+Saída Esperada (Inativo): Se estiver inativo, você verá Active: inactive (dead).
+
+Teste de Conexão (Recomendado): Use o client de linha de comando do Redis para enviar um comando simples (PING):
+
+Bash
+
+redis-cli ping
+Saída Esperada: PONG (Isso confirma que o Redis está ativo e pronto para aceitar conexões).
+
+B. Como Ativar o Redis Automaticamente (Ao Ligar o PC)
+No WSL, os serviços Linux não iniciam automaticamente como fariam em um servidor Linux dedicado. Você precisa de um pequeno script de inicialização.
+
+A melhor maneira de fazer isso sem quebrar a inicialização do WSL é modificar o arquivo de shell do seu usuário Linux (.bashrc).
+
+Entre no Ambiente WSL.
+
+Edite o Arquivo .bashrc:
+
+Bash
+
+nano ~/.bashrc
+Adicione a Verificação de Serviço: Role até o final do arquivo e adicione as seguintes linhas:
+
+Bash
+
+# --- Inicia o Redis automaticamente (para que o back-end funcione) ---
+if [ "$(sudo service redis-server status | grep -c 'is not running')" -eq 1 ]; then
+    echo "Iniciando o servidor Redis..."
+    sudo service redis-server start
+fi
+Este código verifica se o Redis não está rodando e, se não estiver, o inicia em segundo plano. Ele só será executado quando você abrir uma sessão do WSL (o que geralmente acontece quando o computador inicia ou você o acessa).
+
+Salve e Saia: Pressione Ctrl + X, depois Y e Enter.
+
+Com essa configuração, o Redis será iniciado automaticamente na primeira vez que o WSL for iniciado após você ligar o PC.
