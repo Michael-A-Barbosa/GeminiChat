@@ -1,0 +1,7 @@
+# Arquivos de configurações secretos
+keys.txt
+.env
+
+# Pastas de ambiente virtual
+venv/
+.venv/
