@@ -1,8 +1,12 @@
+import os
 import redis
 import json
 from google import genai
 from google.genai import types
 from google.genai.types import Content
+
+#  --- Configuração do Redis no Render (produção)---
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # --- Configuração do Redis e Constantes ---
 REDIS_HOST = 'localhost'
@@ -13,7 +17,12 @@ SYSTEM_INSTRUCTION = "Você é um assistente de atendimento ao cliente amigável
 # Conexão com o Redis (Compartilhada pelos workers)
 R = None
 try:
-    R = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True) 
+    # Conexão com o Redis ambiente local
+    # R = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True) 
+
+    # Conexão com o Redis usando a URL
+    R = redis.from_url(REDIS_URL, decode_responses=True)
+
     R.ping() 
     print(f"Conexão com Redis estabelecida em {REDIS_HOST}:{REDIS_PORT}")
 except redis.exceptions.ConnectionError as e:
