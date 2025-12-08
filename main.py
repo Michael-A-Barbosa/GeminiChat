@@ -7,28 +7,6 @@ from google.genai.errors import APIError
 # 🎯 Importa as funções de comunicação com o Redis/Gemini
 from chat_memory import send_message_with_history, reset_chat_session, get_chat_history_from_redis 
 
-key = os.getenv("GEMINI_AK") 
-if not key:
-    raise ValueError("A variável de ambiente GEMINI_API_KEY não está configurada.")
-
-# --- Configuração de Chave - local ---
-# key = "keys.txt"
-MODEL_NAME = "gemini-2.5-flash"
-
-# --- Função de Carregamento da Chave ---
-def load_api_key(file_path: str) -> str:
-    """Carrega a chave da API do Gemini a partir de um arquivo de texto."""
-    try:
-        with open(file_path, 'r') as f:
-            key = f.read().strip()
-        if not key:
-            raise ValueError("O arquivo keys.txt está vazio.")
-        return key
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Arquivo de chave não encontrado: {file_path}")
-    except Exception as e:
-        raise Exception(f"Erro ao ler o arquivo de chave: {e}")
-
 # --- Configuração do FastAPI ---
 app = FastAPI(title="Gemini Chat API",
               description="Back-end com Memória Persistente (Redis) e limite de 10 interações.")
@@ -55,7 +33,13 @@ client = None
 API_KEY_LOAD_ERROR = None
 
 try:
-    api_key = load_api_key(key)
+    MODEL_NAME = "gemini-2.5-flash"
+
+    api_key = os.getenv("GEMINI_AK") 
+    if not api_key:
+        # Se a chave não for encontrada, lança um erro claro na inicialização
+        raise ValueError("A variável de ambiente GEMINI_AK não está configurada.")
+
     client = genai.Client(api_key=api_key)
 except Exception as e:
     API_KEY_LOAD_ERROR = str(e)
