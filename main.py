@@ -1,49 +1,46 @@
 import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from google import genai
 from google.genai.errors import APIError
 
-# 🎯 Importa as funções de comunicação com o Redis/Gemini
-from chat_memory import send_message_with_history, reset_chat_session, get_chat_history_from_redis 
+# 🎯 Importa a CLASSE de gerenciamento de chat
+from chat_manager import GeminiChatManager 
 
 # --- Configuração do FastAPI ---
 app = FastAPI(title="Gemini Chat API",
               description="Back-end com Memória Persistente (Redis) e limite de 10 interações.")
 
-# --- NOVO: Configuração CORS (Permite que o navegador se comunique) ---
+# --- Configuração CORS (Permite que o navegador se comunique) ---
 from fastapi.middleware.cors import CORSMiddleware
-
-# Permitir todas as origens (ideal para desenvolvimento)
-origins = [
-    "*", # Permite qualquer domínio (incluindo o seu arquivo local "file://")
-]
-
+origins = ["*"] 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins, # Lista de origens permitidas
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Permitir todos os métodos (GET, POST, DELETE)
+    allow_methods=["*"], 
     allow_headers=["*"],
 )
 # --- Fim da Configuração CORS ---              
 
-# --- Inicialização do Cliente Gemini ---
-client = None
-API_KEY_LOAD_ERROR = None
-
+# --- INICIALIZAÇÃO CENTRALIZADA DO SERVIÇO DE CHAT ---
 try:
-    MODEL_NAME = "gemini-2.5-flash"
-
-    api_key = os.getenv("GEMINI_AK") 
-    if not api_key:
-        # Se a chave não for encontrada, lança um erro claro na inicialização
-        raise ValueError("A variável de ambiente GEMINI_AK não está configurada.")
-
-    client = genai.Client(api_key=api_key)
+    # Lê as variáveis de ambiente (MELHOR PRÁTICA)
+    GEMINI_API_KEY = os.getenv("GEMINI_AK") 
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+    
+    if not GEMINI_API_KEY:
+        raise ValueError("A variável de ambiente GEMINI_API_KEY não está configurada.")
+        
+    # Inicializa a classe, passando as dependências
+    chat_manager = GeminiChatManager(
+        api_key=GEMINI_API_KEY, 
+        redis_url=REDIS_URL
+    )
+    
 except Exception as e:
+    # Se houver erro na inicialização (chave ou Redis), a variável armazena o erro
+    chat_manager = None
     API_KEY_LOAD_ERROR = str(e)
-    # A mensagem de erro será impressa na inicialização do chat_memory
 
 
 # --- Configuração do Modelo de Dados para a Requisição ---
@@ -57,9 +54,9 @@ class PromptRequest(BaseModel):
 @app.post("/chat")
 async def chat_with_gemini(request: PromptRequest):
     """
-    Processa a requisição do chat usando o Redis para manter o histórico compartilhado.
+    Processa a requisição do chat usando a classe GeminiChatManager.
     """
-    if client is None:
+    if chat_manager is None:
         raise HTTPException(status_code=500, 
                             detail=f"Erro de configuração: O serviço Gemini não pôde ser inicializado. Detalhe: {API_KEY_LOAD_ERROR}")
             
@@ -70,15 +67,13 @@ async def chat_with_gemini(request: PromptRequest):
         raise HTTPException(status_code=400, detail="A pergunta e o ID da sessão não podem estar vazios.")
 
     try:
-        # Chama a função que lida com o Redis e o Gemini
-        resposta_gemini = send_message_with_history(
+        # Chama o MÉTODO da classe
+        resposta_gemini = chat_manager.send_message(
             session_id=session_id,
-            client=client,
             new_prompt=pergunta
         )
 
-        # Trata erros retornados pela função de memória
-        if resposta_gemini.startswith("Erro"):
+        if resposta_gemini.startswith("Erro de Serviço"):
             raise HTTPException(status_code=500, detail=resposta_gemini)
                 
         return {
@@ -91,6 +86,7 @@ async def chat_with_gemini(request: PromptRequest):
         raise e
     except Exception as e:
         print(f"ERRO INTERNO NO CHAT: {e}")
+        # Isto agora captura erros de API do Gemini (e a chave já está correta se o deploy funcionar)
         raise HTTPException(status_code=500, detail="Ocorreu um erro interno no servidor durante a comunicação.")
 
 
@@ -98,12 +94,16 @@ async def chat_with_gemini(request: PromptRequest):
 @app.get("/chat/history")
 async def get_history(session_id: str):
     """
-    Retorna o histórico de mensagens (limitado a 10 interações) para a sessão.
+    Retorna o histórico de mensagens para a sessão.
     """
+    if chat_manager is None:
+        raise HTTPException(status_code=500, detail="Serviço de chat indisponível.")
+    
     if not session_id:
         raise HTTPException(status_code=400, detail="O ID da sessão não pode estar vazio.")
 
-    history = get_chat_history_from_redis(session_id)
+    # Chama o MÉTODO da classe
+    history = chat_manager.get_chat_history_from_redis(session_id)
     
     return {
         "status": "success",
@@ -118,10 +118,14 @@ async def reset_chat(session_id: str):
     """
     Remove uma sessão de chat específica, apagando seu histórico.
     """
+    if chat_manager is None:
+        raise HTTPException(status_code=500, detail="Serviço de chat indisponível.")
+    
     if not session_id:
         raise HTTPException(status_code=400, detail="O ID da sessão não pode estar vazio.")
 
-    session_deleted = reset_chat_session(session_id)
+    # Chama o MÉTODO da classe
+    session_deleted = chat_manager.reset_chat_session(session_id)
     
     if session_deleted:
         return {

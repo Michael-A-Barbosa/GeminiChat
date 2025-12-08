@@ -5,3 +5,6 @@ keys.txt
 # Pastas de ambiente virtual
 venv/
 .venv/
+
+versoes/
+.rar
